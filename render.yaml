@@ -1,0 +1,18 @@
+# Render Blueprint — API Lex CardioSegura
+# En Render: New + → Blueprint (o Web Service) → conectar el repo de GitHub
+# Root Directory debe ser la carpeta "server" (si el repo es Lex).
+
+services:
+  - type: web
+    name: lex-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
