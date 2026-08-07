@@ -1,4 +1,8 @@
+import dns from 'node:dns';
 import nodemailer from 'nodemailer';
+
+// Preferir IPv4: en Render free Gmail por IPv6 suele dar ENETUNREACH
+dns.setDefaultResultOrder('ipv4first');
 
 type ZoneRequestNotifyPayload = {
   id: string;
@@ -26,6 +30,14 @@ function line(label: string, value?: string | number | boolean | null): string {
   return `<li><strong>${label}:</strong> ${String(value)}</li>`;
 }
 
+function ipv4Lookup(
+  hostname: string,
+  _options: unknown,
+  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
+) {
+  dns.lookup(hostname, { family: 4 }, callback);
+}
+
 export async function notifyZoneRequest(payload: ZoneRequestNotifyPayload): Promise<void> {
   const user = process.env.GMAIL_USER?.trim();
   const pass = process.env.GMAIL_APP_PASSWORD?.trim().replace(/\s+/g, '');
@@ -45,8 +57,7 @@ export async function notifyZoneRequest(payload: ZoneRequestNotifyPayload): Prom
     secure: false,
     requireTLS: true,
     auth: { user, pass },
-    // Render free a veces no llega a Gmail por IPv6
-    family: 4,
+    lookup: ipv4Lookup,
     connectionTimeout: 15000,
     greetingTimeout: 15000,
     socketTimeout: 20000,
