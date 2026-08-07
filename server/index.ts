@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
 import { sql } from './db';
+import { notifyZoneRequest } from './notify';
 
 const app = new Hono();
 const port = Number(process.env.PORT ?? process.env.API_PORT ?? 8787);
@@ -241,9 +242,36 @@ app.post('/zone-requests', async (c) => {
     RETURNING id, created_at, status
   `;
 
+  const requestId = String(rows[0].id);
+
+  try {
+    await notifyZoneRequest({
+      id: requestId,
+      name: name || 'Sin nombre',
+      address: address || 'Sin dirección',
+      contactName,
+      contactPhone,
+      contactEmail,
+      locality,
+      province,
+      institutionType,
+      brand,
+      model,
+      serialNumber,
+      installedAt,
+      deaPlacement: body.deaPlacement?.trim() || null,
+      alreadyInstalled: body.alreadyInstalled !== false,
+      lat,
+      lng,
+      description: body.description?.trim() || null,
+    });
+  } catch (error) {
+    console.error('[zone-requests] Falló el aviso por email:', error);
+  }
+
   return c.json(
     {
-      id: String(rows[0].id),
+      id: requestId,
       status: String(rows[0].status),
       createdAt: new Date(String(rows[0].created_at)).toISOString(),
     },
