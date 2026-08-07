@@ -244,30 +244,29 @@ app.post('/zone-requests', async (c) => {
 
   const requestId = String(rows[0].id);
 
-  try {
-    await notifyZoneRequest({
-      id: requestId,
-      name: name || 'Sin nombre',
-      address: address || 'Sin dirección',
-      contactName,
-      contactPhone,
-      contactEmail,
-      locality,
-      province,
-      institutionType,
-      brand,
-      model,
-      serialNumber,
-      installedAt,
-      deaPlacement: body.deaPlacement?.trim() || null,
-      alreadyInstalled: body.alreadyInstalled !== false,
-      lat,
-      lng,
-      description: body.description?.trim() || null,
-    });
-  } catch (error) {
+  // No bloquear la respuesta HTTP si Gmail tarda o falla
+  void notifyZoneRequest({
+    id: requestId,
+    name: name || 'Sin nombre',
+    address: address || 'Sin dirección',
+    contactName,
+    contactPhone,
+    contactEmail,
+    locality,
+    province,
+    institutionType,
+    brand,
+    model,
+    serialNumber,
+    installedAt,
+    deaPlacement: body.deaPlacement?.trim() || null,
+    alreadyInstalled: body.alreadyInstalled !== false,
+    lat,
+    lng,
+    description: body.description?.trim() || null,
+  }).catch((error) => {
     console.error('[zone-requests] Falló el aviso por email:', error);
-  }
+  });
 
   return c.json(
     {

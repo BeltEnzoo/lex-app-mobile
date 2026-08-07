@@ -42,6 +42,9 @@ export async function notifyZoneRequest(payload: ZoneRequestNotifyPayload): Prom
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: { user, pass },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000,
   });
 
   const subject = `Nueva solicitud de zona — ${payload.name || 'Sin nombre'}`;
