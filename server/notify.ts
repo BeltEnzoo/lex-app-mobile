@@ -1,9 +1,3 @@
-import dns from 'node:dns';
-import nodemailer from 'nodemailer';
-
-// Preferir IPv4: en Render free Gmail por IPv6 suele dar ENETUNREACH
-dns.setDefaultResultOrder('ipv4first');
-
 type ZoneRequestNotifyPayload = {
   id: string;
   name: string;
@@ -30,38 +24,18 @@ function line(label: string, value?: string | number | boolean | null): string {
   return `<li><strong>${label}:</strong> ${String(value)}</li>`;
 }
 
-function ipv4Lookup(
-  hostname: string,
-  _options: unknown,
-  callback: (err: NodeJS.ErrnoException | null, address: string, family: number) => void,
-) {
-  dns.lookup(hostname, { family: 4 }, callback);
-}
-
 export async function notifyZoneRequest(payload: ZoneRequestNotifyPayload): Promise<void> {
-  const user = process.env.GMAIL_USER?.trim();
-  const pass = process.env.GMAIL_APP_PASSWORD?.trim().replace(/\s+/g, '');
+  const apiKey = process.env.SENDGRID_API_KEY?.trim();
   const to = process.env.ZONE_REQUEST_NOTIFY_EMAIL?.trim();
-  const fromName = process.env.GMAIL_FROM_NAME?.trim() || 'Lex CardioSegura';
+  const from = process.env.SENDGRID_FROM_EMAIL?.trim();
+  const fromName = process.env.SENDGRID_FROM_NAME?.trim() || 'Lex CardioSegura';
 
-  if (!user || !pass || !to) {
+  if (!apiKey || !to || !from) {
     console.warn(
-      '[notify] Falta GMAIL_USER, GMAIL_APP_PASSWORD o ZONE_REQUEST_NOTIFY_EMAIL; no se envía aviso.',
+      '[notify] Falta SENDGRID_API_KEY, SENDGRID_FROM_EMAIL o ZONE_REQUEST_NOTIFY_EMAIL; no se envía aviso.',
     );
     return;
   }
-
-  const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    requireTLS: true,
-    auth: { user, pass },
-    lookup: ipv4Lookup,
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 20000,
-  });
 
   const subject = `Nueva solicitud de zona — ${payload.name || 'Sin nombre'}`;
   const html = `
@@ -90,12 +64,24 @@ export async function notifyZoneRequest(payload: ZoneRequestNotifyPayload): Prom
     <p>Estado: <strong>pendiente</strong>. Revisá y aprobá cuando corresponda.</p>
   `;
 
-  await transporter.sendMail({
-    from: `"${fromName}" <${user}>`,
-    to,
-    subject,
-    html,
+  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      personalizations: [{ to: [{ email: to }] }],
+      from: { email: from, name: fromName },
+      subject,
+      content: [{ type: 'text/html', value: html }],
+    }),
   });
 
-  console.log(`[notify] Aviso Gmail enviado a ${to} (solicitud ${payload.id})`);
+  if (!response.ok) {
+    const detail = await response.text();
+    throw new Error(`SendGrid HTTP ${response.status}: ${detail}`);
+  }
+
+  console.log(`[notify] Aviso SendGrid enviado a ${to} (solicitud ${payload.id})`);
 }
