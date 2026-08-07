@@ -40,8 +40,13 @@ export async function notifyZoneRequest(payload: ZoneRequestNotifyPayload): Prom
   }
 
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    requireTLS: true,
     auth: { user, pass },
+    // Render free a veces no llega a Gmail por IPv6
+    family: 4,
     connectionTimeout: 15000,
     greetingTimeout: 15000,
     socketTimeout: 20000,

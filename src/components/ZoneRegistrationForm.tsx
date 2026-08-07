@@ -172,11 +172,7 @@ export function ZoneRegistrationForm({ onSubmitted }: ZoneRegistrationFormProps)
           text: 'Entendido',
           onPress: () => {
             onSubmitted?.();
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/');
-            }
+            router.replace('/');
           },
         },
       ]);
@@ -184,8 +180,8 @@ export function ZoneRegistrationForm({ onSubmitted }: ZoneRegistrationFormProps)
       showAlert(
         'No se pudo enviar',
         error instanceof Error
-          ? `${error.message}\n\nVerificá que la API esté corriendo (npm run api).`
-          : 'No se pudo enviar la solicitud a Neon.',
+          ? `${error.message}\n\nSi estás en local, corré npm run api. Si usás Render, esperá a que el servicio esté Live.`
+          : 'No se pudo enviar la solicitud.',
       );
     } finally {
       setLoading(false);
