@@ -21,67 +21,70 @@ type ZoneRequestNotifyPayload = {
 
 function line(label: string, value?: string | number | boolean | null): string {
   if (value === undefined || value === null || value === '') return '';
-  return `<li><strong>${label}:</strong> ${String(value)}</li>`;
+  return `${label}: ${String(value)}`;
 }
 
 export async function notifyZoneRequest(payload: ZoneRequestNotifyPayload): Promise<void> {
-  const apiKey = process.env.SENDGRID_API_KEY?.trim();
-  const to = process.env.ZONE_REQUEST_NOTIFY_EMAIL?.trim();
-  const from = process.env.SENDGRID_FROM_EMAIL?.trim();
-  const fromName = process.env.SENDGRID_FROM_NAME?.trim() || 'Lex CardioSegura';
+  const accessKey = process.env.WEB3FORMS_ACCESS_KEY?.trim();
 
-  if (!apiKey || !to || !from) {
-    console.warn(
-      '[notify] Falta SENDGRID_API_KEY, SENDGRID_FROM_EMAIL o ZONE_REQUEST_NOTIFY_EMAIL; no se envía aviso.',
-    );
+  if (!accessKey) {
+    console.warn('[notify] Falta WEB3FORMS_ACCESS_KEY; no se envía aviso.');
     return;
   }
 
   const subject = `Nueva solicitud de zona — ${payload.name || 'Sin nombre'}`;
-  const html = `
-    <h2>Nueva solicitud de Incorporar zona</h2>
-    <p>Se recibió una solicitud pendiente de revisión en Lex CardioSegura.</p>
-    <ul>
-      ${line('ID', payload.id)}
-      ${line('Lugar', payload.name)}
-      ${line('Dirección', payload.address)}
-      ${line('Localidad', payload.locality)}
-      ${line('Provincia', payload.province)}
-      ${line('Tipo', payload.institutionType)}
-      ${line('Contacto', payload.contactName)}
-      ${line('Teléfono', payload.contactPhone)}
-      ${line('Email', payload.contactEmail)}
-      ${line('Marca DEA', payload.brand)}
-      ${line('Modelo', payload.model)}
-      ${line('Nº serie', payload.serialNumber)}
-      ${line('Fecha instalación', payload.installedAt)}
-      ${line('Ubicación DEA', payload.deaPlacement)}
-      ${line('Ya instalado', payload.alreadyInstalled)}
-      ${line('Lat', payload.lat)}
-      ${line('Lng', payload.lng)}
-      ${line('Descripción', payload.description)}
-    </ul>
-    <p>Estado: <strong>pendiente</strong>. Revisá y aprobá cuando corresponda.</p>
-  `;
+  const message = [
+    'Nueva solicitud de Incorporar zona (Lex CardioSegura)',
+    '',
+    line('ID', payload.id),
+    line('Lugar', payload.name),
+    line('Dirección', payload.address),
+    line('Localidad', payload.locality),
+    line('Provincia', payload.province),
+    line('Tipo', payload.institutionType),
+    line('Contacto', payload.contactName),
+    line('Teléfono', payload.contactPhone),
+    line('Email', payload.contactEmail),
+    line('Marca DEA', payload.brand),
+    line('Modelo', payload.model),
+    line('Nº serie', payload.serialNumber),
+    line('Fecha instalación', payload.installedAt),
+    line('Ubicación DEA', payload.deaPlacement),
+    line('Ya instalado', payload.alreadyInstalled),
+    line('Lat', payload.lat),
+    line('Lng', payload.lng),
+    line('Descripción', payload.description),
+    '',
+    'Estado: pendiente',
+  ]
+    .filter(Boolean)
+    .join('\n');
 
-  const response = await fetch('https://api.sendgrid.com/v3/mail/send', {
+  const response = await fetch('https://api.web3forms.com/submit', {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
     body: JSON.stringify({
-      personalizations: [{ to: [{ email: to }] }],
-      from: { email: from, name: fromName },
+      access_key: accessKey,
       subject,
-      content: [{ type: 'text/html', value: html }],
+      from_name: 'Lex CardioSegura',
+      name: payload.contactName,
+      email: payload.contactEmail,
+      phone: payload.contactPhone,
+      message,
+      botcheck: '',
     }),
   });
 
-  if (!response.ok) {
-    const detail = await response.text();
-    throw new Error(`SendGrid HTTP ${response.status}: ${detail}`);
+  const result = (await response.json().catch(() => null)) as {
+    success?: boolean;
+    message?: string;
+  } | null;
+
+  if (!response.ok || !result?.success) {
+    throw new Error(
+      `Web3Forms error: ${result?.message || `HTTP ${response.status}`}`,
+    );
   }
 
-  console.log(`[notify] Aviso SendGrid enviado a ${to} (solicitud ${payload.id})`);
+  console.log(`[notify] Aviso Web3Forms enviado (solicitud ${payload.id})`);
 }
